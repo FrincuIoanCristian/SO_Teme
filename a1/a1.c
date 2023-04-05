@@ -9,9 +9,9 @@
 #include <fcntl.h>
 #include <unistd.h>
 #pragma pack(1)
-#define size_citire 512
+#define size_citire 300
 
-enum
+enum erori_header
 {
     MAGIC,
     VERSION,
@@ -19,13 +19,19 @@ enum
     TYPES,
     PATH,
 };
+
+enum optiuni
+{
+    VARIANT,
+    LIST,
+    PARSE,
+    EXTRACT,
+    FINDALL,
+};
 typedef struct LIST
 {
     // optiuni
-    bool list;
-    bool parse;
-    bool extract;
-    bool findall;
+    int optiune;
     // pentru list
     bool recursiv;
     bool greater_size;
@@ -52,7 +58,6 @@ typedef struct SECTION
 
 typedef struct HEADER
 {
-    int corupted;
     unsigned char magic;
     unsigned short header_size;
     unsigned char version;
@@ -65,14 +70,17 @@ list *parsareArgumente(int n, char **arg)
     list *l = (list *)malloc(1 * sizeof(list));
     for (int i = 1; i < n; i++)
     {
-        if (strcmp(arg[i], "recursive") == 0)
+        if (strcmp(arg[i], "variant") == 0)
+        {
+            l->optiune = VARIANT;
+        }
+        else if (strcmp(arg[i], "list") == 0)
+        {
+            l->optiune = LIST;
+        }
+        else if (strcmp(arg[i], "recursive") == 0)
         {
             l->recursiv = true;
-        }
-        else if (strncmp(arg[i], "size_greater=", 13) == 0)
-        {
-            l->greater_size = true;
-            sscanf(arg[i] + 13, "%d", &l->size);
         }
         else if (strncmp(arg[i], "name_starts_with=", 17) == 0)
         {
@@ -80,27 +88,18 @@ list *parsareArgumente(int n, char **arg)
             l->string = (char *)malloc(strlen(arg[i] + 16) * sizeof(char));
             sscanf(arg[i] + 17, "%s", l->string);
         }
-        else if (strcmp(arg[i], "list") == 0)
+        else if (strncmp(arg[i], "size_greater=", 13) == 0)
         {
-            l->list = true;
-        }
-        else if (strncmp(arg[i], "path=", 5) == 0)
-        {
-            l->path = true;
-            l->path_string = (char *)malloc(strlen(arg[i] + 4) * sizeof(char));
-            sscanf(arg[i] + 5, "%s", l->path_string);
+            l->greater_size = true;
+            sscanf(arg[i] + 13, "%d", &l->size);
         }
         else if (strcmp(arg[i], "parse") == 0)
         {
-            l->parse = true;
+            l->optiune = PARSE;
         }
         else if (strcmp(arg[i], "extract") == 0)
         {
-            l->extract = true;
-        }
-        else if (strcmp(arg[i], "findall") == 0)
-        {
-            l->findall = true;
+            l->optiune = EXTRACT;
         }
         else if (strncmp(arg[i], "section=", 8) == 0)
         {
@@ -112,11 +111,21 @@ list *parsareArgumente(int n, char **arg)
             l->line = true;
             sscanf(arg[i] + 5, "%d", &l->line_nr);
         }
+        else if (strcmp(arg[i], "findall") == 0)
+        {
+            l->optiune = FINDALL;
+        }
+        else if (strncmp(arg[i], "path=", 5) == 0)
+        {
+            l->path = true;
+            l->path_string = (char *)malloc(strlen(arg[i] + 4) * sizeof(char));
+            sscanf(arg[i] + 5, "%s", l->path_string);
+        }
     }
     return l;
 }
 
-void listare(char *path, list *l, int ok)
+void listare(char *path, list *l, bool ok)
 {
     DIR *dir = NULL;
     struct dirent *entry = NULL;
@@ -128,10 +137,9 @@ void listare(char *path, list *l, int ok)
         printf("ERROR\ninvalid directory path\n");
         return;
     }
-    if (ok == 1)
+    if (ok)
     {
         printf("SUCCESS\n");
-        ok++;
     }
     while ((entry = readdir(dir)) != NULL)
     {
@@ -146,7 +154,7 @@ void listare(char *path, list *l, int ok)
             {
                 if (S_ISDIR(statbuf.st_mode))
                 {
-                    listare(filePath, l, ok);
+                    listare(filePath, l, false);
                 }
             }
             if (l->name_start && strncmp(entry->d_name, l->string, strlen(l->string)) != 0)
@@ -241,15 +249,46 @@ header *parsare(char *path, int *eroare)
     return h;
 }
 
-void print_header(header *h)
+void print_header(header *h, int eroare)
 {
-    printf("SUCCESS\nversion=%d\nnr_sections=%d\n", h->version, h->no_of_sections);
-    for (int i = 0; i < h->no_of_sections; i++)
+    if (h == NULL)
     {
-        printf("section%d: %s %d %d\n", i + 1, h->sectiuni[i].name, h->sectiuni[i].type, h->sectiuni[i].size);
+        switch (eroare)
+        {
+        case MAGIC:
+        {
+            printf("ERROR\nwrong magic\n");
+            break;
+        }
+        case VERSION:
+        {
+            printf("ERROR\nwrong version\n");
+            break;
+        }
+        case SECT_NR:
+        {
+            printf("ERROR\nwrong sect_nr\n");
+            break;
+        }
+        case TYPES:
+        {
+            printf("ERROR\nwrong sect_types\n");
+            break;
+        }
+        default:
+            printf("ERROR\ninvalid directory path\n");
+        }
     }
-    free(h->sectiuni);
-    free(h);
+    else
+    {
+        printf("SUCCESS\nversion=%d\nnr_sections=%d\n", h->version, h->no_of_sections);
+        for (int i = 0; i < h->no_of_sections; i++)
+        {
+            printf("section%d: %s %d %d\n", i + 1, h->sectiuni[i].name, h->sectiuni[i].type, h->sectiuni[i].size);
+        }
+        free(h->sectiuni);
+        free(h);
+    }
 }
 
 bool nr_line_of_section(char *path, header *h, int section)
@@ -261,29 +300,45 @@ bool nr_line_of_section(char *path, header *h, int section)
         return false;
     }
     lseek(fd, h->sectiuni[section].offset, SEEK_SET);
-    int nr = 1;
-    char a, b;
-    read(fd, &a, 1);
-    for (unsigned int i = 1; i < h->sectiuni[section].size; i++)
+    int nr_line = 1;
+    int size = 0, size2;
+    char a = 0, b;
+    char *s;
+    while ((h->sectiuni[section].size - size) != 0)
     {
-        read(fd, &b, 1);
-        if (i == h->sectiuni[section].size - 1)
+        if (h->sectiuni[section].size - size > size_citire)
         {
-            break;
+            s = (char *)malloc(size_citire * sizeof(char));
+            read(fd, s, size_citire);
+            size += size_citire;
+            size2 = size_citire;
         }
-        if (a == '\r' && b == '\n')
+        else
         {
-            nr++;
+            s = (char *)malloc((h->sectiuni[section].size - size) * sizeof(char));
+            read(fd, s, h->sectiuni[section].size - size);
+            size2 = h->sectiuni[section].size - size;
+            size += (h->sectiuni[section].size - size);
         }
-        if (nr > 15)
+        for (int i = 0; i < size2; i++)
         {
-            close(fd);
-            return false;
+            b = s[i];
+            if (a == '\r' && b == '\n')
+            {
+                nr_line++;
+            }
+            if (nr_line > 15)
+            {
+                close(fd);
+                free(s);
+                return false;
+            }
+            a = b;
         }
-        a = b;
+        free(s);
     }
     close(fd);
-    if (nr == 15)
+    if (nr_line == 15)
     {
         return true;
     }
@@ -342,6 +397,10 @@ void extract(list *l)
         free(h);
         return;
     }
+    if (poz2 == 0)
+    {
+        poz2 = lseek(fd, 0, SEEK_CUR);
+    }
     printf("SUCCESS\n");
     for (int i = poz2; i >= poz1; i--)
     {
@@ -355,7 +414,7 @@ void extract(list *l)
     free(h);
 }
 
-void find_all(char *path, list *l, int ok)
+void find_all(char *path, list *l, bool ok)
 {
     DIR *dir = NULL;
     struct dirent *entry = NULL;
@@ -367,10 +426,9 @@ void find_all(char *path, list *l, int ok)
         printf("ERROR\ninvalid directory path\n");
         return;
     }
-    if (ok == 0)
+    if (ok)
     {
         printf("SUCCESS\n");
-        ok++;
     }
     while ((entry = readdir(dir)) != NULL)
     {
@@ -383,7 +441,7 @@ void find_all(char *path, list *l, int ok)
         {
             if (S_ISDIR(statbuf.st_mode))
             {
-                find_all(filePath, l, ok);
+                find_all(filePath, l, false);
             }
             else
             {
@@ -421,72 +479,41 @@ int main(int argc, char **argv)
 {
     if (argc >= 2)
     {
-        // variant
-        if (strcmp(argv[1], "variant") == 0)
+        list *l = parsareArgumente(argc, argv);
+        switch (l->optiune)
+        {
+        case VARIANT:
         {
             printf("91328\n");
+            break;
         }
-        else
+        case LIST:
         {
-            list *l = parsareArgumente(argc, argv);
-            // list
-            if (l->list)
-            {
-                listare(l->path_string, l, 1);
-            }
-            // parse
-            else if (l->parse)
-            {
-                header *h;
-                int eroare = 0;
-                h = parsare(l->path_string, &eroare);
-                if (h == NULL)
-                {
-                    switch (eroare)
-                    {
-                    case MAGIC:
-                    {
-                        printf("ERROR\nwrong magic\n");
-                        break;
-                    }
-                    case VERSION:
-                    {
-                        printf("ERROR\nwrong version\n");
-                        break;
-                    }
-                    case SECT_NR:
-                    {
-                        printf("ERROR\nwrong sect_nr\n");
-                        break;
-                    }
-                    case TYPES:
-                    {
-                        printf("ERROR\nwrong sect_types\n");
-                        break;
-                    }
-                    default:
-                        printf("ERROR\ninvalid directory path\n");
-                    }
-                }
-                else
-                {
-                    print_header(h);
-                }
-            }
-            // extract
-            else if (l->extract)
-            {
-                extract(l);
-            }
-            // findall
-            else if (l->findall)
-            {
-                find_all(l->path_string, l, 0);
-            }
-            free(l->path_string);
-            free(l->string);
-            free(l);
+            listare(l->path_string, l, true);
+            break;
         }
+        case PARSE:
+        {
+            header *h;
+            int eroare = 0;
+            h = parsare(l->path_string, &eroare);
+            print_header(h, eroare);
+            break;
+        }
+        case EXTRACT:
+        {
+            extract(l);
+            break;
+        }
+        case FINDALL:
+        {
+            find_all(l->path_string, l, true);
+            break;
+        }
+        }
+        free(l->path_string);
+        free(l->string);
+        free(l);
     }
     return 0;
 }
