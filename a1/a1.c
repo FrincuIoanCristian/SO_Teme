@@ -399,7 +399,7 @@ void extract(list *l)
     }
     if (poz2 == 0)
     {
-        poz2 = lseek(fd, 0, SEEK_CUR);
+        poz2 = lseek(fd, 0, SEEK_CUR) - 1;
     }
     printf("SUCCESS\n");
     for (int i = poz2; i >= poz1; i--)
