@@ -354,7 +354,7 @@ void extract(list *l)
         printf("ERROR\ninvalid file\n");
         return;
     }
-    if (l->section_nr > h->no_of_sections)
+    if (l->section_nr > h->no_of_sections || h->no_of_sections < 1)
     {
         printf("ERROR\ninvalid section\n");
         free(h->sectiuni);
