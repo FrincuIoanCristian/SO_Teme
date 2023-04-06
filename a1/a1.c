@@ -348,6 +348,11 @@ bool nr_line_of_section(char *path, header *h, int section)
 void extract(list *l)
 {
     int n = 0;
+    if (l->line_nr <= 0)
+    {
+        printf("ERROR\ninvalid line\n");
+        return;
+    }
     header *h = parsare(l->path_string, &n);
     if (h == NULL)
     {
