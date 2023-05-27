@@ -89,7 +89,7 @@ header *parsare(char *data, int size)
 {
     header *h = (header *)malloc(1 * sizeof(header));
     h->magic = data[size - 1];
-    h->header_size = *(unsigned short *)(data + size - 3);
+    sscanf(data+size-3, "%hu", &h->header_size);
     if (h->magic != '0')
     {
         free(h);
@@ -118,11 +118,11 @@ header *parsare(char *data, int size)
     {
         strncpy(h->sectiuni[i].name, data + index, 11);
         index += 11;
-        h->sectiuni[i].type = *(unsigned short *)(data + index);
+        sscanf(data+index, "%hu", &h->sectiuni[i].type);
         index += 2;
-        h->sectiuni[i].offset = *(unsigned int *)(data + index);
+        sscanf(data+index, "%u", &h->sectiuni[i].offset);
         index += 4;
-        h->sectiuni[i].size = *(unsigned short *)(data + index);
+        sscanf(data+index, "%u", &h->sectiuni[i].size);
         index += 4;
         if (h->sectiuni[i].type == 57 || h->sectiuni[i].type == 63 || h->sectiuni[i].type == 15 || h->sectiuni[i].type == 29)
         {
@@ -276,7 +276,7 @@ int main()
             read(fd1, &section_no, sizeof(unsigned int));
             read(fd1, &offset, sizeof(unsigned int));
             read(fd1, &no_of_bytes, sizeof(unsigned int));
-            header *h = parsare(data, size);
+            header *h = parsare(data, size_data);
             if (h == NULL)
             {
                 write(fd2, STR_AND_LENGHT("READ_FROM_FILE_SECTION$ERROR$"));
