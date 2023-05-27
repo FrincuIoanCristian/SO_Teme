@@ -89,7 +89,8 @@ header *parsare(char *data, int size)
 {
     header *h = (header *)malloc(1 * sizeof(header));
     h->magic = data[size - 1];
-    sscanf(data+size-3, "%hu", &h->header_size);
+    unsigned short *header_size = (unsigned short*)(data+size -3);
+    h->header_size = *(header_size);
     if (h->magic != '0')
     {
         free(h);
@@ -114,15 +115,20 @@ header *parsare(char *data, int size)
         return NULL;
     }
     h->sectiuni = (section *)malloc(h->no_of_sections * sizeof(section));
+    unsigned short *type;
+    unsigned int *offset, *sect_size;
     for (int i = 0; i < h->no_of_sections; i++)
     {
         strncpy(h->sectiuni[i].name, data + index, 11);
         index += 11;
-        sscanf(data+index, "%hu", &h->sectiuni[i].type);
+        type = (unsigned short*)(data+index);
+        h->sectiuni[i].type = *(type);
         index += 2;
-        sscanf(data+index, "%u", &h->sectiuni[i].offset);
+        offset = (unsigned int*)(data+index);
+        h->sectiuni[i].offset = *(offset);
         index += 4;
-        sscanf(data+index, "%u", &h->sectiuni[i].size);
+        sect_size = (unsigned int*)(data+index);
+        h->sectiuni[i].size = *(sect_size);
         index += 4;
         if (h->sectiuni[i].type == 57 || h->sectiuni[i].type == 63 || h->sectiuni[i].type == 15 || h->sectiuni[i].type == 29)
         {
@@ -137,6 +143,7 @@ header *parsare(char *data, int size)
     }
     return h;
 }
+
 
 int main()
 {
@@ -164,6 +171,7 @@ int main()
     char *data = NULL;
     shm_unlink("/mGQYlA");
     unsigned int size, size_data;
+    char file[256];
     while (true)
     {
         char *request_string = (char *)malloc(50 * sizeof(char));
@@ -225,7 +233,6 @@ int main()
         }
         case MAP__FILE:
         {
-            char file[256];
             i = 0;
             while (true)
             {
@@ -277,6 +284,7 @@ int main()
             read(fd1, &offset, sizeof(unsigned int));
             read(fd1, &no_of_bytes, sizeof(unsigned int));
             header *h = parsare(data, size_data);
+
             if (h == NULL)
             {
                 write(fd2, STR_AND_LENGHT("READ_FROM_FILE_SECTION$ERROR$"));
