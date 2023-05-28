@@ -11,6 +11,7 @@
 #include <string.h>
 
 #define STR_AND_LENGHT(X) X, strlen(X)
+#define ALINIAMENT 4096
 
 enum operatori
 {
@@ -30,6 +31,7 @@ typedef struct SECTION
     unsigned short type;
     unsigned int offset;
     unsigned int size;
+    unsigned int logical_offset;
 } section;
 
 typedef struct HEADER
@@ -89,7 +91,7 @@ header *parsare(char *data, int size)
 {
     header *h = (header *)malloc(1 * sizeof(header));
     h->magic = data[size - 1];
-    unsigned short *header_size = (unsigned short*)(data+size -3);
+    unsigned short *header_size = (unsigned short *)(data + size - 3);
     h->header_size = *(header_size);
     if (h->magic != '0')
     {
@@ -115,21 +117,25 @@ header *parsare(char *data, int size)
         return NULL;
     }
     h->sectiuni = (section *)malloc(h->no_of_sections * sizeof(section));
-    unsigned short *type;
-    unsigned int *offset, *sect_size;
+    unsigned int logical_off = 0;
     for (int i = 0; i < h->no_of_sections; i++)
     {
         strncpy(h->sectiuni[i].name, data + index, 11);
         index += 11;
-        type = (unsigned short*)(data+index);
-        h->sectiuni[i].type = *(type);
+        h->sectiuni[i].type = *(unsigned short *)(data + index);
         index += 2;
-        offset = (unsigned int*)(data+index);
-        h->sectiuni[i].offset = *(offset);
+        h->sectiuni[i].offset = *(unsigned int *)(data + index);
         index += 4;
-        sect_size = (unsigned int*)(data+index);
-        h->sectiuni[i].size = *(sect_size);
+        h->sectiuni[i].size = *(unsigned int *)(data + index);
         index += 4;
+        h->sectiuni[i].logical_offset = logical_off;
+        unsigned int sz = h->sectiuni[i].size;
+        logical_off += ALINIAMENT;
+        while (sz > ALINIAMENT)
+        {
+            logical_off += ALINIAMENT;
+            sz -= ALINIAMENT;
+        }
         if (h->sectiuni[i].type == 57 || h->sectiuni[i].type == 63 || h->sectiuni[i].type == 15 || h->sectiuni[i].type == 29)
         {
             continue;
@@ -143,7 +149,6 @@ header *parsare(char *data, int size)
     }
     return h;
 }
-
 
 int main()
 {
@@ -199,7 +204,7 @@ int main()
         case CREATE_SHM:
         {
             read(fd1, &size, 4);
-            printf("%d\n", size);
+            printf("size=%d\n", size);
             shmFD = shm_open("/mGQYlA", O_CREAT | O_RDWR, 0664);
             if (shmFD < 0)
             {
@@ -221,7 +226,7 @@ int main()
             unsigned int offset, value;
             read(fd1, &offset, sizeof(unsigned int));
             read(fd1, &value, sizeof(unsigned int));
-            printf("%d, %d\n", offset, value);
+            printf("offset=%d, value=%d\n", offset, value);
             if (offset < 0 || offset + sizeof(unsigned int) > size)
             {
                 write(fd2, STR_AND_LENGHT("WRITE_TO_SHM$ERROR$"));
@@ -244,7 +249,7 @@ int main()
                 file[i++] = c;
             }
             file[i] = '\0';
-            printf("%s\n", file);
+            printf("file=%s\n", file);
             fd = open(file, O_RDONLY);
             if (fd == -1)
             {
@@ -267,7 +272,7 @@ int main()
             unsigned int offset, no_of_bytes;
             read(fd1, &offset, sizeof(unsigned int));
             read(fd1, &no_of_bytes, sizeof(unsigned int));
-            printf("%d, %d\n", offset, no_of_bytes);
+            printf("offset=%d, no_of_bytes=%d\n", offset, no_of_bytes);
             if (offset < 0 || offset + no_of_bytes > size_data || sharedMem == (void *)-1 || data == (void *)-1)
             {
                 write(fd2, STR_AND_LENGHT("READ_FROM_FILE_OFFSET$ERROR$"));
@@ -283,6 +288,7 @@ int main()
             read(fd1, &section_no, sizeof(unsigned int));
             read(fd1, &offset, sizeof(unsigned int));
             read(fd1, &no_of_bytes, sizeof(unsigned int));
+            printf("section_no=%d, offset=%d, no_of_bytes=%d\n", section_no, offset, no_of_bytes);
             header *h = parsare(data, size_data);
 
             if (h == NULL)
@@ -290,15 +296,48 @@ int main()
                 write(fd2, STR_AND_LENGHT("READ_FROM_FILE_SECTION$ERROR$"));
                 break;
             }
+            for (int i = 0; i < h->no_of_sections; i++)
+            {
+                printf("Sectionea:%d, size:%d\n", i + 1, h->sectiuni[i].size);
+            }
             if (section_no > h->no_of_sections || offset > h->sectiuni[section_no - 1].size || no_of_bytes > h->sectiuni[section_no - 1].size - offset)
             {
                 write(fd2, STR_AND_LENGHT("READ_FROM_FILE_SECTION$ERROR$"));
+                free(h->sectiuni);
                 free(h);
                 break;
             }
             strncpy((char *)sharedMem, data + h->sectiuni[section_no - 1].offset + offset, no_of_bytes);
             write(fd2, STR_AND_LENGHT("READ_FROM_FILE_SECTION$SUCCESS$"));
-
+            free(h->sectiuni);
+            free(h);
+            break;
+        }
+        case READ_FROM_LOGICAL_SPACE_OFFSET:
+        {
+            unsigned int logical_offset, no_of_bytes;
+            read(fd1, &logical_offset, sizeof(unsigned int));
+            read(fd1, &no_of_bytes, sizeof(unsigned int));
+            printf("logical_offset=%d, no_of_bytes=%d\n", logical_offset, no_of_bytes);
+            header *h = parsare(data, size_data);
+            int section;
+            for (section = 0; section < h->no_of_sections; section++)
+            {
+                if (h->sectiuni[section].logical_offset > logical_offset)
+                {
+                    break;
+                }
+            }
+            section--;
+            if (h->sectiuni[section].size < (logical_offset - h->sectiuni[section].logical_offset) + no_of_bytes || logical_offset > h->sectiuni[h->no_of_sections-1].logical_offset + h->sectiuni[h->no_of_sections-1].size)
+            {
+                write(fd2, STR_AND_LENGHT("READ_FROM_LOGICAL_SPACE_OFFSET$ERROR$"));
+                free(h->sectiuni);
+                free(h);
+                break;
+            }
+            strncpy((char *)sharedMem, data + h->sectiuni[section].offset + (logical_offset - h->sectiuni[section].logical_offset), no_of_bytes);
+            write(fd2, STR_AND_LENGHT("READ_FROM_LOGICAL_SPACE_OFFSET$SUCCESS$"));
             free(h->sectiuni);
             free(h);
             break;
@@ -308,11 +347,11 @@ int main()
             close(fd1);
             close(fd2);
             close(fd);
-            shm_unlink("/mGQYlA");
             close(shmFD);
             munmap((void *)sharedMem, size);
             munmap(data, size_data);
             free(request_string);
+            shm_unlink("/mGQYlA");
             unlink("RESP_PIPE_91328");
             return 0;
         }

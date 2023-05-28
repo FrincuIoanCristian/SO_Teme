@@ -91,9 +91,21 @@ Test score: 10 / 10
 [TESTER] sending number 1200
 [TESTER] sending number 2769
 [TESTER] received string 'READ_FROM_FILE_SECTION'
-[TESTER] received string 'ERROR'
+[TESTER] received string 'SUCCESS'
+[TESTER] sending string 'READ_FROM_FILE_SECTION'
+[TESTER] sending number 11
+[TESTER] sending number 4044
+[TESTER] sending number 3588
+[TESTER] received string 'READ_FROM_FILE_SECTION'
+[TESTER] received string 'SUCCESS'
+[TESTER] sending string 'READ_FROM_FILE_SECTION'
+[TESTER] sending number 9
+[TESTER] sending number 655
+[TESTER] sending number 195
+[TESTER] received string 'READ_FROM_FILE_SECTION'
+[TESTER] received string 'SUCCESS'
 [TESTER] sending string 'EXIT'
-Test score: 4 / 10
+Test score: 10 / 10
 [1;35mTesting read_logical...[0m
 [TESTER] received string 'CONNECT'
 [TESTER] sending string 'CREATE_SHM'
@@ -105,10 +117,27 @@ Test score: 4 / 10
 [TESTER] received string 'MAP_FILE'
 [TESTER] received string 'SUCCESS'
 [TESTER] sending string 'READ_FROM_LOGICAL_SPACE_OFFSET'
-[TESTER] sending number 23
-[TESTER] sending number 167
+[TESTER] sending number 600
+[TESTER] sending number 897
+[TESTER] received string 'READ_FROM_LOGICAL_SPACE_OFFSET'
+[TESTER] received string 'SUCCESS'
+[TESTER] sending string 'READ_FROM_LOGICAL_SPACE_OFFSET'
+[TESTER] sending number 12449
+[TESTER] sending number 91
+[TESTER] received string 'READ_FROM_LOGICAL_SPACE_OFFSET'
+[TESTER] received string 'SUCCESS'
+[TESTER] sending string 'READ_FROM_LOGICAL_SPACE_OFFSET'
+[TESTER] sending number 52934
+[TESTER] sending number 3123
+[TESTER] received string 'READ_FROM_LOGICAL_SPACE_OFFSET'
+[TESTER] received string 'SUCCESS'
+[TESTER] sending string 'READ_FROM_LOGICAL_SPACE_OFFSET'
+[TESTER] sending number 84070
+[TESTER] sending number 4052
+[TESTER] received string 'READ_FROM_LOGICAL_SPACE_OFFSET'
+[TESTER] received string 'SUCCESS'
 [TESTER] sending string 'EXIT'
-Test score: 2 / 10
+Test score: 10 / 10
 
-Total score: 56 / 70
-Assignment grade: 80.00 / 100
+Total score: 70 / 70
+Assignment grade: 100.00 / 100
